@@ -2,9 +2,9 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 def generate_receptive_fields(image_shape, fixation, base_radius, growth_rate, overlap_density):
-    """
-    Generates a list of Receptive Fields radiating outward in concentric rings.
-    """
+    
+    #Generates a list of Receptive Fields radiating outward in concentric rings.
+    
     height, width = image_shape[:2]
     fix_x, fix_y = fixation
     
@@ -14,10 +14,10 @@ def generate_receptive_fields(image_shape, fixation, base_radius, growth_rate, o
     
     rfs = []
     
-    # 1. Add the central foveal RF
+    # Adds the central foveal RF
     rfs.append({"x": fix_x, "y": fix_y, "r": base_radius})
     
-    # 2. Iterate outward in rings
+    # Iterate outward in rings
     current_dist = base_radius * overlap_density
     
     while current_dist < max_dist + base_radius:
@@ -48,10 +48,10 @@ def generate_receptive_fields(image_shape, fixation, base_radius, growth_rate, o
 
 
 def extract_rf_statistics(image, rfs):
-    """
-    Iterates through the generated RFs, applies a circular mask, 
-    and calculates the Mean and Variance for the RGB channels.
-    """
+    
+    #Iterates through the generated RFs, applies a circular mask, 
+    #and calculates the Mean and Variance for the RGB channels.
+    
     height, width = image.shape[:2]
     statistical_map = []
     
@@ -74,7 +74,7 @@ def extract_rf_statistics(image, rfs):
         # Creates a coordinate grid to define the circular mask mathematically
         X, Y = np.meshgrid(np.arange(min_x, max_x), np.arange(min_y, max_y))
         
-        # Equation of a circle: (X - cx)^2 + (Y - cy)^2 <= r^2
+        # Equation of a circle
         circular_mask = ((X - cx)**2 + (Y - cy)**2) <= r**2
         
         # Extract only the pixels that fall inside the true circle
