@@ -1,101 +1,176 @@
 import numpy as np
-from PIL import Image, ImageDraw
+from shapely.geometry import Point, Polygon
 
-def generate_receptive_fields(image_shape, fixation, base_radius, growth_rate, overlap_density):
-    
-    #Generates a list of Receptive Fields radiating outward in concentric rings.
-    
+
+def circle_overlap_area(circle_obj, rf_x, rf_y, rf_radius):
+    """
+    Computes the overlap area between a scene circle and a receptive field.
+    """
+
+    rf = Point(rf_x, rf_y).buffer(rf_radius, resolution=64)
+    obj = Point(circle_obj.x, circle_obj.y).buffer(circle_obj.radius, resolution=64)
+
+    return rf.intersection(obj).area
+
+
+
+def square_overlap_area(square_obj, rf_x, rf_y, rf_radius):
+    """
+    Computes the overlap area between a scene square and a receptive field.
+    """
+
+    half = square_obj.size / 2
+
+    square = Polygon([
+        (square_obj.x - half, square_obj.y - half),
+        (square_obj.x + half, square_obj.y - half),
+        (square_obj.x + half, square_obj.y + half),
+        (square_obj.x - half, square_obj.y + half)
+    ])
+
+    rf = Point(rf_x, rf_y).buffer(rf_radius, resolution=64)
+
+    return rf.intersection(square).area
+
+def triangle_overlap_area(triangle_obj, rf_x, rf_y, rf_radius):
+    """
+    Computes the overlap area between a scene triangle and a receptive field.
+    """
+    s = triangle_obj.size
+    h = np.sqrt(3) * s / 2
+
+    triangle = Polygon([
+        (triangle_obj.x, triangle_obj.y - 2*h/3),
+        (triangle_obj.x - s/2, triangle_obj.y + h/3),
+        (triangle_obj.x + s/2, triangle_obj.y + h/3)
+    ])
+
+    rf = Point(rf_x, rf_y).buffer(rf_radius, resolution=64)
+
+    return rf.intersection(triangle).area
+
+
+def object_overlap_area(obj, rf_x, rf_y, rf_radius):
+
+    if hasattr(obj, "radius"):
+        return circle_overlap_area(obj, rf_x, rf_y, rf_radius)
+
+    elif obj.__class__.__name__ == "Square":
+        return square_overlap_area(obj, rf_x, rf_y, rf_radius)
+
+    elif obj.__class__.__name__ == "Triangle":
+        return triangle_overlap_area(obj, rf_x, rf_y, rf_radius)
+
+    return 0.0
+
+
+# Generate receptive fields
+def generate_receptive_fields(image_shape, fixation, base_radius, growth_rate, overlap_density, target_rf_count=98):
+    # Generates receptive fields with a discontinuous size profile.
+    # Foveal RFs are much smaller than peripheral RFs.
+    # Radius changes in discrete steps instead of continuously.
     height, width = image_shape[:2]
     fix_x, fix_y = fixation
-    
-    # Calculate the maximum distance to the furthest corner of the image
+
     corners = np.array([[0, 0], [width, 0], [0, height], [width, height]])
     max_dist = np.max(np.linalg.norm(corners - np.array([fix_x, fix_y]), axis=1))
+
+    # Radius step function
+    def rf_radius(distance):
+        FOVEAL_BOUNDARY = 100
+        if distance <= FOVEAL_BOUNDARY:
+            return base_radius * 0.7  # e.g. 12 px if base_radius=30
+        else:
+            return base_radius * 1.2  # e.g. 45 px if base_radius=30
     
-    rfs = []
-    
-    # Adds the central foveal RF
-    rfs.append({"x": fix_x, "y": fix_y, "r": base_radius})
-    
-    # Iterate outward in rings
-    current_dist = base_radius * overlap_density
-    
+    r0 = rf_radius(0)
+    rfs = [{"x": fix_x, "y": fix_y, "r": r0}]
+    current_dist = r0 * overlap_density
+
     while current_dist < max_dist + base_radius:
-        # Calculate radius at the current distance based on growth rate
-        r = base_radius + (current_dist * growth_rate)
-        
-        # Calculate circumference of the current ring
+        r = rf_radius(current_dist)
         circumference = 2 * np.pi * current_dist
-        
-        # Determine how many circles fit in this ring based on the overlap density
         spacing = r * overlap_density
         num_circles = max(1, int(circumference / spacing))
-        
-        # Generate the center coordinates (x,y) for this ring
         angles = np.linspace(0, 2 * np.pi, num_circles, endpoint=False)
+
         for angle in angles:
             cx = fix_x + current_dist * np.cos(angle)
             cy = fix_y + current_dist * np.sin(angle)
-            
-            # Only save the RF if it actually touches the image boundaries, else drop it
+
             if -r <= cx <= width + r and -r <= cy <= height + r:
                 rfs.append({"x": cx, "y": cy, "r": r})
-        
-        # Step out to the next concentric ring
-        current_dist += r * overlap_density
-        
+                
+                if len(rfs) >= 98:
+                    return rfs
+
+        current_dist += spacing
+
     return rfs
 
 
-def extract_rf_statistics(image, rfs):
+# Predict stats directly from the scene
+def predict_rf_stats(scene, rfs):
+    # Predict receptive field RGB statistics directly from the mathematical scene
+    # using exact area overlap between objects and receptive fields.
     
-    #Iterates through the generated RFs, applies a circular mask, 
-    #and calculates the Mean and Variance for the RGB channels.
-    
-    height, width = image.shape[:2]
     statistical_map = []
-    
+    background = np.array(scene.background_color, dtype=np.float32)
+
     for rf in rfs:
-        cx, cy, r = rf["x"], rf["y"], rf["r"]
-        
-        # Define a square bounding box around the circle
-        min_x = max(0, int(cx - r))
-        max_x = min(width, int(cx + r) + 1)
-        min_y = max(0, int(cy - r))
-        max_y = min(height, int(cy + r) + 1)
-        
-        # Skip if the bounding box is entirely outside the image
-        if min_x >= max_x or min_y >= max_y:
-            continue
-            
-        # Crops the image to the bounding box
-        crop = image[min_y:max_y, min_x:max_x]
-        
-        # Creates a coordinate grid to define the circular mask mathematically
-        X, Y = np.meshgrid(np.arange(min_x, max_x), np.arange(min_y, max_y))
-        
-        # Equation of a circle
-        circular_mask = ((X - cx)**2 + (Y - cy)**2) <= r**2
-        
-        # Extract only the pixels that fall inside the true circle
-        pixels = crop[circular_mask]
-        
-        # Calculate the statistics make sure there are pixels to avoid dividing by zero
-        if len(pixels) > 0:
-            # axis=0 means it calculates the mean & var independently for R, G, and B
-            mean_rgb = np.mean(pixels, axis=0)
-            var_rgb = np.var(pixels, axis=0)
-            
-            # Some pixels might have identical colors, causing variance to be exactly 0
-            # Have to add a tiny number to variance so the future likelihood math doesn't crash
-            epsilon = 1e-6
-            var_rgb = np.maximum(var_rgb, epsilon)
-            
-            statistical_map.append({
-                "rf": rf,               # Original spatial data (x, y, radius)
-                "pixel_count": len(pixels),
-                "mean": mean_rgb,       # Array of [R_mean, G_mean, B_mean]
-                "variance": var_rgb     # Array of [R_var, G_var, B_var]
-            })
-            
+        cx = rf["x"]
+        cy = rf["y"]
+        r = rf["r"]
+
+        rf_area = np.pi * r * r
+
+        weighted_sum = np.zeros(3, dtype=np.float32)
+        covered_area = 0.0
+
+        region_colors = []
+        region_weights = []
+
+        # Compute contribution from each object
+        for obj in scene.objects:
+
+            overlap = object_overlap_area(obj, cx, cy, r)
+
+            if overlap <= 0:
+                continue
+
+            color = np.array(obj.color, dtype=np.float32)
+
+            weighted_sum += overlap * color
+            covered_area += overlap
+
+            region_colors.append(color)
+            region_weights.append(overlap)
+
+        # Add background contribution
+        background_area = max(0.0, rf_area - covered_area)
+
+        weighted_sum += background_area * background
+
+        # Mean RGB
+        mean_rgb = weighted_sum / rf_area
+
+        # Weighted variance
+        variance_rgb = np.zeros(3, dtype=np.float32)
+
+        for color, area in zip(region_colors, region_weights):
+            weight = area / rf_area
+            variance_rgb += weight * (color - mean_rgb) ** 2
+
+        background_weight = background_area / rf_area
+        variance_rgb += background_weight * (background - mean_rgb) ** 2
+
+        variance_rgb = np.maximum(variance_rgb, 1e-6)
+
+        statistical_map.append({
+            "rf": rf,
+            "rf_area": rf_area,
+            "mean": mean_rgb,
+            "variance": variance_rgb
+        })
+
     return statistical_map

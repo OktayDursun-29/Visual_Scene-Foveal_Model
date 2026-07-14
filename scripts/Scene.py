@@ -1,32 +1,51 @@
 import numpy as np
 from PIL import Image, ImageDraw
-import csv
-from ReceptiveFields import generate_receptive_fields, extract_rf_statistics
 
-# Defining the scene
+# ==========================
+# Shape Definitions
+# ==========================
 class Circle:
     def __init__(self, x, y, radius, color):
-        self.x = float(x)
-        self.y = float(y)
-        self.radius = float(radius)
-        self.color = color  # Expected as a tuple: (R, G, B)
+        self.x, self.y, self.radius, self.color = float(x), float(y), float(radius), color
+
+    def contains(self, x, y):
+        """Checks whether a point lies inside the circle."""
+        return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
+
 
 class Square:
     def __init__(self, x, y, size, color):
-        self.x = float(x)
-        self.y = float(y)
-        self.size = float(size)
-        self.color = color  # Expected as a tuple: (R, G, B)
+        self.x, self.y, self.size, self.color = float(x), float(y), float(size), color
+
+    def contains(self, x, y):
+        """Checks whether a point lies inside the square."""
+        half = self.size / 2
+        return (self.x - half <= x <= self.x + half) and (self.y - half <= y <= self.y + half)
+
 
 class Triangle:
     def __init__(self, x, y, size, color):
-        self.x = float(x)
-        self.y = float(y)
-        self.size = float(size)
-        self.color = color  # Expected as a tuple: (R, G, B)
+        self.x, self.y, self.size, self.color = float(x), float(y), float(size), color
 
+    def get_vertices(self):
+        """Creates the three vertices of an upright triangle."""
+        half = self.size / 2
+        return [(self.x, self.y - half), (self.x - half, self.y + half), (self.x + half, self.y + half)]
+
+    def contains(self, x, y):
+        """Uses barycentric coordinates to determine if a point lies inside the triangle."""
+        (x1, y1), (x2, y2), (x3, y3) = self.get_vertices()
+        denom = ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3))
+        a = ((y2 - y3)*(x - x3) + (x3 - x2)*(y - y3)) / denom
+        b = ((y3 - y1)*(x - x3) + (x1 - x3)*(y - y3)) / denom
+        return (0 <= a <= 1) and (0 <= b <= 1) and (0 <= (1 - a - b) <= 1)
+
+
+# ==========================
+# Scene Definition
+# ==========================
 class Scene:
-    def __init__(self, background_color=(255, 255, 255)):
+    def __init__(self, background_color=(255,255,255)):
         self.background_color = background_color
         self.objects = []
 
@@ -34,24 +53,18 @@ class Scene:
         self.objects.append(shape)
 
     def render_to_image(self, width, height):
-        """
-        Acts as the camera: takes the mathematical shapes and 
-        renders them into a grid of raw RGB pixels.
-        """
-        # Create a blank image using Pillow
+        """Converts the mathematical scene into an RGB image."""
         img = Image.new("RGB", (width, height), self.background_color)
         draw = ImageDraw.Draw(img)
 
-        # Draw every object in the scene
+        # Draw objects in order added. Later objects overwrite earlier ones.
         for obj in self.objects:
             if isinstance(obj, Circle):
-                # Pillow requires a bounding box to draw a circle: [x_min, y_min, x_max, y_max]
-                bbox = [
-                    obj.x - obj.radius, 
-                    obj.y - obj.radius, 
-                    obj.x + obj.radius, 
-                    obj.y + obj.radius
-                ]
-                draw.ellipse(bbox, fill=obj.color)
+                draw.ellipse([obj.x - obj.radius, obj.y - obj.radius, obj.x + obj.radius, obj.y + obj.radius], fill=obj.color)
+            elif isinstance(obj, Square):
+                half = obj.size / 2
+                draw.rectangle([obj.x - half, obj.y - half, obj.x + half, obj.y + half], fill=obj.color)
+            elif isinstance(obj, Triangle):
+                draw.polygon(obj.get_vertices(), fill=obj.color)
                 
         return img
