@@ -3,9 +3,7 @@ from shapely.geometry import Point, Polygon
 
 
 def circle_overlap_area(circle_obj, rf_x, rf_y, rf_radius):
-    """
-    Computes the overlap area between a scene circle and a receptive field.
-    """
+    # Computes the overlap area between a scene circle and a receptive field
 
     rf = Point(rf_x, rf_y).buffer(rf_radius, resolution=64)
     obj = Point(circle_obj.x, circle_obj.y).buffer(circle_obj.radius, resolution=64)
@@ -13,11 +11,8 @@ def circle_overlap_area(circle_obj, rf_x, rf_y, rf_radius):
     return rf.intersection(obj).area
 
 
-
 def square_overlap_area(square_obj, rf_x, rf_y, rf_radius):
-    """
-    Computes the overlap area between a scene square and a receptive field.
-    """
+    # Computes the overlap area between a scene square and a receptive field
 
     half = square_obj.size / 2
 
@@ -33,9 +28,7 @@ def square_overlap_area(square_obj, rf_x, rf_y, rf_radius):
     return rf.intersection(square).area
 
 def triangle_overlap_area(triangle_obj, rf_x, rf_y, rf_radius):
-    """
-    Computes the overlap area between a scene triangle and a receptive field.
-    """
+    # Computes the overlap area between a scene triangle and a receptive field
     s = triangle_obj.size
     h = np.sqrt(3) * s / 2
 
@@ -79,9 +72,9 @@ def generate_receptive_fields(image_shape, fixation, base_radius, growth_rate, o
     def rf_radius(distance):
         FOVEAL_BOUNDARY = 100
         if distance <= FOVEAL_BOUNDARY:
-            return base_radius * 0.7  # e.g. 12 px if base_radius=30
+            return base_radius * 0.7  
         else:
-            return base_radius * 1.2  # e.g. 45 px if base_radius=30
+            return base_radius * 1.2  
     
     r0 = rf_radius(0)
     rfs = [{"x": fix_x, "y": fix_y, "r": r0}]

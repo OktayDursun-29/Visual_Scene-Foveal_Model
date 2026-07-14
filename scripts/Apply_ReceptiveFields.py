@@ -75,7 +75,7 @@ def visualize_rf_statistics(image, actual_stats, save_path="results/rf_visualiza
     axes[1].imshow(img_uint8)
     for stat in actual_stats:
         rf = stat["rf"]
-        # Clip the color values to guarantee they stay between 0.0 and 1.0
+        # Clip the color values to make sure they stay between 0.0 and 1.0
         color_val = np.clip(stat["mean"] / 255, 0.0, 1.0)
         axes[1].add_patch(PlotCircle((rf["x"], rf["y"]), rf["r"], fill=False, linewidth=3, color=color_val))
         axes[1].set_title("RFs Colored by Mean RGB")
@@ -98,7 +98,7 @@ def visualize_rf_statistics(image, actual_stats, save_path="results/rf_visualiza
     if directory := os.path.dirname(save_path):
         os.makedirs(directory, exist_ok=True)
         
-    # Save and close instead of plt.show()
+    # Save and close instead of showing to avoid blocking execution in non-interactive environments
     plt.savefig(save_path, bbox_inches='tight', dpi=150)
     plt.close(fig)
 
