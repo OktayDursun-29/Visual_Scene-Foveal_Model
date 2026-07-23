@@ -167,3 +167,4 @@ def predict_rf_stats(scene, rfs):
         })
 
     return statistical_map
+

@@ -48,7 +48,6 @@ def save_statistics_to_csv(stats, filename):
     print("CSV save complete!")
 
 # Calculatin the likelihood
-
 def compute_scene_loglikelihood(actual_stats, observed_stats):
     # Compares observed image RF statistics against predicted scene RF statistics 
    
@@ -118,11 +117,12 @@ def main():
     rfs = generate_receptive_fields(actual_image.shape, FIXATION_POINT, BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY, target_rf_count=100)
     print(f"Total RFs generated: {len(rfs)}")
 
-    # predicting stats directly from the scene 
-    actual_stats = predict_rf_stats(actual_scene, rfs)
+    # predicting stats directly from the scene using JAX
+    print("\nPredicting stats using JAX...")
+    actual_stats = predict_rf_stats_jax(actual_scene, rfs)
 
-    # predicting stats for the random scene
-    random_stats = predict_rf_stats(random_scene, rfs)
+    # predicting stats for the random scene using JAX
+    random_stats = predict_rf_stats_jax(random_scene, rfs)
 
     print("\nComputing likelihood...")
     
@@ -142,7 +142,8 @@ def main():
     visualize_rf_statistics(actual_image, actual_stats, save_path=save_file)
     print(f"Visualization successfully saved to {save_file}")
 
-    # Benchmark the NumPy version
+    print("\n--- Benchmarking Normal Python ---")
+    # Benchmark the Normal Python/Shapely version
     benchmark(
         predict_rf_stats,
         actual_scene,
@@ -150,22 +151,17 @@ def main():
         runs=20
     )
 
-    # Compile the JAX version
-    #predict_rf_stats_jax(actual_scene, rfs)
+    print("\n--- Benchmarking JAX ---")
+    # Compile the JAX version by running it once before benchmarking
+    predict_rf_stats_jax(actual_scene, rfs)
 
     # Benchmark the JAX version
-    #benchmark(
-    #    predict_rf_stats_jax,
-    #    actual_scene,
-    #    rfs,
-    #    runs=20
-    #)
-    
-    # Extract the means from the predicted stats 
-    actual_obs_means = [stat["mean"] for stat in actual_stats]
-    random_obs_means = [stat["mean"] for stat in random_stats]
-
-
+    benchmark(
+        predict_rf_stats_jax,
+        actual_scene,
+        rfs,
+        runs=20
+    )
     
 if __name__ == "__main__":
     main()
