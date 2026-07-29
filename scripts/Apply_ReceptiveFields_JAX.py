@@ -10,6 +10,7 @@ from ReceptiveFields import generate_receptive_fields, predict_rf_stats
 from Benchmark import benchmark
 from ReceptiveFieldsJAX import predict_rf_stats_jax
 
+
 # Creating fixed scene
 def create_scene(width=800, height=800):
     # Creates mathematical scene and renders it
