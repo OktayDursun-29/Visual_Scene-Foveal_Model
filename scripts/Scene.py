@@ -3,13 +3,12 @@ from PIL import Image, ImageDraw
 
 # Shape definitions
 class Circle:
-    def __init__(self, x, y, radius, color):
-        self.x, self.y, self.radius, self.color = float(x), float(y), float(radius), color
-
-    def contains(self, x, y):
-        # Checks whether a point lies inside the circle
-        return (x - self.x)**2 + (y - self.y)**2 <= self.radius**2
-
+    def __init__(self, x, y, radius, color, stationary=False):
+        self.x = float(x)
+        self.y = float(y)
+        self.radius = float(radius)
+        self.color = color
+        self.stationary = stationary
 
 class Square:
     def __init__(self, x, y, size, color):

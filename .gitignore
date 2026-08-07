@@ -3,8 +3,12 @@
 
 # Python virtual environment
 .venv/
+.genjax_env/
 
 # Python cache
 __pycache__/
 *.pyc
+
+# Generated Gen.jl render output
+results/genjl_states/
 
