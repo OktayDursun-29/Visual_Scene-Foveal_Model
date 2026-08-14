@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+  <rect width="800" height="800" fill="white" stroke="black" stroke-width="4"/>
+  <text x="24" y="40" font-family="sans-serif" font-size="24">Simulation trajectory</text>
+  <polyline points="300,400 312.5,402.5 325,405 337.5,407.5 350,410 362.5,412.5 375,415 387.5,417.5 400,420 412.5,422.5 425,425 437.5,427.5 450,430 462.5,432.5 475,435 487.5,437.5 500,440 512.5,442.5 525,445" fill="none" stroke="rgb(255, 170, 170)" stroke-width="5"/>
+  <g id="sampled-states" fill="rgb(255, 0, 0)" fill-opacity="0.18">
+    <circle cx="300" cy="400" r="30"/><circle cx="312.5" cy="402.5" r="30"/><circle cx="325" cy="405" r="30"/><circle cx="337.5" cy="407.5" r="30"/><circle cx="350" cy="410" r="30"/><circle cx="362.5" cy="412.5" r="30"/><circle cx="375" cy="415" r="30"/><circle cx="387.5" cy="417.5" r="30"/><circle cx="400" cy="420" r="30"/><circle cx="412.5" cy="422.5" r="30"/><circle cx="425" cy="425" r="30"/><circle cx="437.5" cy="427.5" r="30"/><circle cx="450" cy="430" r="30"/><circle cx="462.5" cy="432.5" r="30"/><circle cx="475" cy="435" r="30"/><circle cx="487.5" cy="437.5" r="30"/><circle cx="500" cy="440" r="30"/><circle cx="512.5" cy="442.5" r="30"/><circle cx="525" cy="445" r="30"/>
+  </g>
+  <circle cx="500" cy="400" r="30" fill="rgb(0, 0, 255)"/>
+  <circle cx="300" cy="400" r="30" fill="rgb(255, 0, 0)">
+    <animate attributeName="cx" values="300;312.5;325;337.5;350;362.5;375;387.5;400;412.5;425;437.5;450;462.5;475;487.5;500;512.5;525" dur="8s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="400;402.5;405;407.5;410;412.5;415;417.5;420;422.5;425;427.5;430;432.5;435;437.5;440;442.5;445" dur="8s" repeatCount="indefinite"/>
+  </circle>
+</svg>
