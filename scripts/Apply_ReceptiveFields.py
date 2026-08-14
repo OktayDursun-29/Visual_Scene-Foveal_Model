@@ -5,30 +5,34 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle as PlotCircle
 from scipy.stats import norm
-from Scene import Scene, Circle, Square, Triangle
-from ReceptiveFields import generate_receptive_fields, predict_rf_stats
-from Benchmark import benchmark
-from ReceptiveFieldsJAX import predict_rf_stats_jax
+from foveal_scene import Circle, Polygon, Rectangle, SimulationState, VisualScene2D
+from ReceptiveFieldsJAX import generate_receptive_fields, predict_rf_stats_jax
+
 
 # Creating fixed scene
 def create_scene(width=800, height=800):
     # Creates mathematical scene and renders it
-    my_scene = Scene(background_color=(255,255,255))
-    my_scene.add_object(Circle(x=200, y=200, radius=60, color=(0,0,255)))
-    my_scene.add_object(Square(x=350, y=250, size=80, color=(0,255,0)))
-    my_scene.add_object(Triangle(x=450, y=400, size=80, color=(255,0,0)))
-    return my_scene, np.array(my_scene.render_to_image(width, height)).astype(np.float32)
+    visual_scene = VisualScene2D(width, height)
+    objects = (
+        Circle(center=(200, 200), radius=60, fill=(0, 0, 255)),
+        Rectangle(xy=(310, 210, 390, 290), fill=(0, 255, 0)),
+        Polygon(points=((450, 360), (410, 440), (490, 440)), fill=(255, 0, 0)),
+    )
+    state = SimulationState(scene=visual_scene, objects=objects, rfs={})
+    return state, np.array(visual_scene.render(objects)).astype(np.float32)
 
 # Creating randomized scene
 def create_random_scene(width=800, height=800):
-    my_scene = Scene(background_color=(255,255,255))
+    visual_scene = VisualScene2D(width, height)
     random_color = lambda: (random.randint(0,255), random.randint(0,255), random.randint(0,255))
-
-    my_scene.add_object(Circle(random.randint(100,width-100), random.randint(100,height-100), random.randint(30,120), random_color()))
-    my_scene.add_object(Square(random.randint(100,width-100), random.randint(100,height-100), random.randint(30,120), random_color()))
-    my_scene.add_object(Triangle(random.randint(100,width-100), random.randint(100,height-100), random.randint(30,120), random_color()))
-    
-    return my_scene, np.array(my_scene.render_to_image(width, height)).astype(np.float32)
+    circle = Circle((random.randint(100,width-100), random.randint(100,height-100)), random.randint(30,120), random_color())
+    square_x, square_y, square_size = random.randint(100,width-100), random.randint(100,height-100), random.randint(30,120)
+    square = Rectangle((square_x-square_size/2, square_y-square_size/2, square_x+square_size/2, square_y+square_size/2), random_color())
+    triangle_x, triangle_y, triangle_size = random.randint(100,width-100), random.randint(100,height-100), random.randint(30,120)
+    triangle = Polygon(((triangle_x, triangle_y-triangle_size/2), (triangle_x-triangle_size/2, triangle_y+triangle_size/2), (triangle_x+triangle_size/2, triangle_y+triangle_size/2)), random_color())
+    objects = (circle, square, triangle)
+    state = SimulationState(scene=visual_scene, objects=objects, rfs={})
+    return state, np.array(visual_scene.render(objects)).astype(np.float32)
 
 # Saving stats
 def save_statistics_to_csv(stats, filename):
@@ -48,7 +52,6 @@ def save_statistics_to_csv(stats, filename):
     print("CSV save complete!")
 
 # Calculatin the likelihood
-
 def compute_scene_loglikelihood(actual_stats, observed_stats):
     # Compares observed image RF statistics against predicted scene RF statistics 
    
@@ -118,11 +121,12 @@ def main():
     rfs = generate_receptive_fields(actual_image.shape, FIXATION_POINT, BASE_RADIUS, GROWTH_RATE, OVERLAP_DENSITY, target_rf_count=100)
     print(f"Total RFs generated: {len(rfs)}")
 
-    # predicting stats directly from the scene 
-    actual_stats = predict_rf_stats(actual_scene, rfs)
+    # predicting stats directly from the scene using JAX
+    print("\nPredicting stats using JAX...")
+    actual_stats = predict_rf_stats_jax(actual_scene, rfs)
 
-    # predicting stats for the random scene
-    random_stats = predict_rf_stats(random_scene, rfs)
+    # predicting stats for the random scene using JAX
+    random_stats = predict_rf_stats_jax(random_scene, rfs)
 
     print("\nComputing likelihood...")
     
@@ -142,30 +146,5 @@ def main():
     visualize_rf_statistics(actual_image, actual_stats, save_path=save_file)
     print(f"Visualization successfully saved to {save_file}")
 
-    # Benchmark the NumPy version
-    benchmark(
-        predict_rf_stats,
-        actual_scene,
-        rfs,
-        runs=20
-    )
-
-    # Compile the JAX version
-    #predict_rf_stats_jax(actual_scene, rfs)
-
-    # Benchmark the JAX version
-    #benchmark(
-    #    predict_rf_stats_jax,
-    #    actual_scene,
-    #    rfs,
-    #    runs=20
-    #)
-    
-    # Extract the means from the predicted stats 
-    actual_obs_means = [stat["mean"] for stat in actual_stats]
-    random_obs_means = [stat["mean"] for stat in random_stats]
-
-
-    
 if __name__ == "__main__":
     main()

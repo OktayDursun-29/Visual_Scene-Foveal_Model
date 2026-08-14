@@ -6,6 +6,41 @@ from jax import jit, vmap
 from jax.random import normal
 import numpy as np 
 
+
+def generate_receptive_fields(
+    image_shape,
+    fixation,
+    base_radius,
+    growth_rate,
+    overlap_density,
+    target_rf_count=98,
+):
+    """Generate the existing two-size foveal/peripheral RF layout."""
+    height, width = image_shape[:2]
+    fix_x, fix_y = fixation
+    corners = np.array([[0, 0], [width, 0], [0, height], [width, height]])
+    max_dist = np.max(np.linalg.norm(corners - np.array([fix_x, fix_y]), axis=1))
+
+    def rf_radius(distance):
+        return base_radius * (0.7 if distance <= 100 else 1.2)
+
+    r0 = rf_radius(0)
+    rfs = [{"x": fix_x, "y": fix_y, "r": r0}]
+    current_dist = r0 * overlap_density
+    while current_dist < max_dist + base_radius:
+        radius = rf_radius(current_dist)
+        spacing = radius * overlap_density
+        count = max(1, int(2 * np.pi * current_dist / spacing))
+        for angle in np.linspace(0, 2 * np.pi, count, endpoint=False):
+            x = fix_x + current_dist * np.cos(angle)
+            y = fix_y + current_dist * np.sin(angle)
+            if -radius <= x <= width + radius and -radius <= y <= height + radius:
+                rfs.append({"x": x, "y": y, "r": radius})
+                if len(rfs) >= target_rf_count:
+                    return rfs
+        current_dist += spacing
+    return rfs
+
 def circle_circle_intersection(x1, y1, r1, x2, y2, r2):
     # Area of intersection between two circles.
     # Returns the area of the portion of the FIRST circle overlapped
@@ -66,19 +101,26 @@ def scene_to_jax(scene, rfs_list):
     rfs = jnp.array([[rf["x"], rf["y"], rf["r"]] for rf in rfs_list], dtype=jnp.float32)
     objects = []
     for obj in scene.objects:
-        if hasattr(obj, "radius"):
+        if hasattr(obj, "center"):
             obj_type, size = 0, obj.radius
-        elif obj.__class__.__name__ == "Square":
-            obj_type, size = 1, obj.size
-        elif obj.__class__.__name__ == "Triangle":
-            obj_type, size = 2, obj.size
+            x, y = obj.center
+        elif hasattr(obj, "xy"):
+            obj_type = 1
+            x0, y0, x1, y1 = obj.xy
+            x, y = (x0 + x1) / 2, (y0 + y1) / 2
+            size = x1 - x0
+        elif hasattr(obj, "points"):
+            obj_type = 2
+            points = np.asarray(obj.points, dtype=float)
+            x, y = points.mean(axis=0)
+            size = points[:, 0].max() - points[:, 0].min()
         else:
             continue
-        r, g, b = obj.color
-        objects.append([obj.x, obj.y, size, obj_type, r, g, b])
+        r, g, b = obj.fill
+        objects.append([x, y, size, obj_type, r, g, b])
 
     objects = jnp.array(objects, dtype=jnp.float32)
-    background = jnp.array(scene.background_color, dtype=jnp.float32)
+    background = jnp.array(scene.scene.background, dtype=jnp.float32)
     return rfs, objects, background
 
 def jax_stats(scene, rfs_list):

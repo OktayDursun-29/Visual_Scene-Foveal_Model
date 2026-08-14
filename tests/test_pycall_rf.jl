@@ -2,7 +2,7 @@ using PyCall
 
 # Add this script's folder to Python's import path, independent of the
 # directory from which Julia was launched.
-pushfirst!(pyimport("sys")."path", @__DIR__)
+pushfirst!(pyimport("sys")."path", joinpath(@__DIR__, "..", "scripts"))
 
 # Import Python modules
 rfjax = pyimport("ReceptiveFieldsJAX")
